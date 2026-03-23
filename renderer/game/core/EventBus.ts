@@ -75,7 +75,6 @@ class EventBus {
     const listeners = this.listeners[event];
     if (!listeners || listeners.size === 0) return;
     for (const listener of listeners) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (listener as Listener<any>)(payload as any);
     }
   }

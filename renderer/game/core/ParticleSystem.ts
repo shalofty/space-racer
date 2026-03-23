@@ -353,7 +353,6 @@ export class ParticleSystem {
     // Asteroid auras
     for (let i = this.asteroidAuras.length - 1; i >= 0; i--) {
       const em = this.asteroidAuras[i];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const t = (em as any).target as Object3D;
       if (!t?.parent) {
         em.dispose(this.scene);

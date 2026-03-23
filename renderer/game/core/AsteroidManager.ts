@@ -82,7 +82,6 @@ export class AsteroidManager {
       MathUtils.randFloat(-1.5, 1.5),
       MathUtils.randFloat(-1.5, 1.5),
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (asteroid as any).userData = {
       ...(asteroid as any).userData,
       spin,
@@ -93,7 +92,6 @@ export class AsteroidManager {
     // FBX imports can end up with shared material instances across clones, and/or
     // look too uniform. Deep-clone materials and apply a per-asteroid tint.
     asteroid.traverse((obj) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const anyObj = obj as any;
       if (!anyObj?.isMesh || !anyObj?.material) return;
 

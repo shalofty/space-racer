@@ -1,17 +1,13 @@
 {
-  "name": "speedracer",
+  "name": "space-racer",
   "version": "1.0.0",
-  "description": "SpeedRacer endless runner",
-  "main": "index.js",
+  "description": "Space Racer — endless space runner",
+  "private": true,
   "scripts": {
     "dev": "cd renderer && npm run dev",
+    "build": "cd renderer && npm run build"
+  },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "three": "^0.183.2"
-  },
-  "devDependencies": {
-    "@types/three": "^0.183.1"
-  }
+  "license": "ISC"
 }

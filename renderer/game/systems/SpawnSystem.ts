@@ -96,7 +96,6 @@ export class SpawnSystem {
       const powerupMaterial = new MeshBasicMaterial({ color });
       const mesh: Mesh = new ThreeMesh(powerupGeometry, powerupMaterial);
       mesh.position.set(x, y, WORLD.SPAWN_Z_START);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mesh as any).userData = {
         powerupType,
         spawnType: `powerup-${powerupType}`,
@@ -119,7 +118,6 @@ export class SpawnSystem {
 
       obj.position.set(x, y, WORLD.SPAWN_Z_START);
       // Tag for debug introspection.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (obj as any).userData = {
         ...(obj as any).userData,
         spawnType: "obstacle",

@@ -68,7 +68,6 @@ export class WorldScrollSystem {
       // Update the dynamic object position
       obj.position.z += dz;
       // Get the spin of the dynamic object
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const spin = ((obj as any).userData?.spin as Vector3) || null;
       if (spin) {
         // Update the dynamic object rotation

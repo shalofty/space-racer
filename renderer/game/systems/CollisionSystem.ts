@@ -9,6 +9,10 @@ interface Collider {
   type: ColliderType;
 }
 
+interface ColliderUserData {
+  colliderHalfSize?: Vector3;
+}
+
 export class CollisionSystem {
   private player: Player;
   private colliders: Collider[] = [];
@@ -54,10 +58,9 @@ export class CollisionSystem {
     const remaining: Collider[] = [];
 
     for (const collider of this.colliders) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userData = collider.object.userData as ColliderUserData;
       const half =
-        ((collider.object as any).userData?.colliderHalfSize as Vector3) ||
-        this.defaultColliderHalfSize;
+        userData.colliderHalfSize ?? this.defaultColliderHalfSize;
       this.tempBox.setFromCenterAndSize(
         collider.object.position,
         half.clone().multiplyScalar(2),
@@ -90,7 +93,6 @@ export class CollisionSystem {
 
       if (collider.type === "powerup") {
         const powerType =
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ((collider.object as any).userData?.powerupType as string) || "speed";
         eventBus.emit("powerupCollected", { type: powerType });
         if (collider.object.parent) {

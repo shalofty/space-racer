@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { Game } from "../../game/Game";
-import { eventBus } from "../../game/core/EventBus";
-import type { GameEventMap } from "../../game/core/EventBus";
+import { Game } from "../game/Game";
+import { eventBus } from "../game/core/EventBus";
+import type { GameEventMap } from "../game/core/EventBus";
 import { music } from "./audio/music";
 
 const game = new Game();
 
+const GAME_ASPECT = 16 / 9;
+
 type UiState = "MENU" | "PLAYING" | "GAME_OVER";
 
 function App() {
-  const GAME_ASPECT = 16 / 9;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [uiState, setUiState] = useState<UiState>("MENU");
   const uiStateRef = useRef<UiState>("MENU");
@@ -198,7 +199,7 @@ function App() {
               color: "#fff",
             }}
           >
-            <h1>SpeedRacer</h1>
+            <h1>Space Racer</h1>
             <button onClick={handleClickStart}>Start (Enter)</button>
           </div>
         )}
