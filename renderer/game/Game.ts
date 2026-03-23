@@ -42,6 +42,7 @@ import { ParticleSystem } from "./core/ParticleSystem";
 import { NebulaClouds, type NebulaQuality } from "./core/NebulaClouds";
 import { LayeredClouds } from "./core/LayeredClouds";
 import { gameConfig } from "./config/gameConfig";
+import { getThrusterNozzleLocals } from "./config/thrusterTuning";
 
 export class Game {
   private renderer: WebGLRenderer | null = null;
@@ -147,15 +148,12 @@ export class Game {
     this.detachThrusterFlames(true);
 
     // Uniform X scale tells us the ship's world size (FBX import uses uniform scale).
-    const sx = target.scale.x;
-    // Loaded ship is tiny (~0.01); placeholder cube is ~1 — different stern offsets.
+    const sx = Math.max(1e-6, target.scale.x);
     const tinyShip = sx < 0.15;
     // Blow up child scale so cone dimensions stay visible in world space (pairs with ParticleSystem `lz`).
-    this.thrusterFlameScaleComp = tinyShip ? 1 / Math.max(1e-6, sx) : 1;
+    this.thrusterFlameScaleComp = tinyShip ? 1 / sx : 1;
     const c = this.thrusterFlameScaleComp;
-    // Stern along **local -Z** (nose is +Z after loader sets ship `rotation.y = Math.PI`).
-    const zCore = tinyShip ? -(0.72 / sx) : -0.78;
-    const zOuter = tinyShip ? -(0.88 / sx) : -1.02;
+    const { ny, zCore, zOuter } = getThrusterNozzleLocals(sx);
 
     // Default cone: axis +Y, base at y=0 (wide), tip at y=h (narrow). Translate up by h/2 so the wide base sits at origin.
     const hCore = 2.25;
@@ -179,8 +177,8 @@ export class Game {
     );
     // -90° X: cone axis (+Y) aligns with **local -Z** so the flame extends backward from the hull.
     core.rotation.x = -Math.PI * 0.5;
-    // Match particle nozzle: slight -Y; zCore sits the cone base near the engines.
-    core.position.set(0, -0.03, zCore);
+    // Match particle nozzle (world offsets in `gameConfig`); zCore sits the cone base near the stern.
+    core.position.set(0, ny, zCore);
     core.renderOrder = 5;
     core.scale.setScalar(c);
 
@@ -197,7 +195,7 @@ export class Game {
       }),
     );
     outer.rotation.x = -Math.PI * 0.5;
-    outer.position.set(0, -0.03, zOuter);
+    outer.position.set(0, ny, zOuter);
     outer.renderOrder = 5;
     outer.scale.setScalar(c * 1.06);
 
@@ -206,6 +204,24 @@ export class Game {
     target.add(core);
     this.thrusterFlameCore = core;
     this.thrusterFlameOuter = outer;
+  }
+
+  /**
+   * Dev: move thruster cone meshes when `thrusterTuning` sliders change (particles read tuning each frame).
+   */
+  repositionThrusterFlames(): void {
+    if (
+      !this.thrusterFlameCore ||
+      !this.thrusterFlameOuter ||
+      !this.playerObject
+    ) {
+      return;
+    }
+    const { ny, zCore, zOuter } = getThrusterNozzleLocals(
+      this.playerObject.scale.x,
+    );
+    this.thrusterFlameCore.position.set(0, ny, zCore);
+    this.thrusterFlameOuter.position.set(0, ny, zOuter);
   }
 
   /** Remove thruster meshes from their parent; optionally dispose geometry/materials. */
@@ -614,10 +630,11 @@ export class Game {
             mm.transparent = false;
             mm.opacity = 1;
             if ("depthWrite" in mm) mm.depthWrite = true;
-            // Readable hull: asteroids use ~0.42 emissive; ship was too dark vs them.
-            if ("emissive" in mm) {
+            // Optional hull glow (see SHIP_HULL_EMISSIVE_BASE). When 0, FBX emissive is left as authored.
+            if ("emissive" in mm && gameConfig.SHIP_HULL_EMISSIVE_BASE > 0) {
               mm.emissive.setRGB(0.13, 0.14, 0.17);
-              const baseIntensity = 0.36 + Math.random() * 0.1;
+              const baseIntensity =
+                gameConfig.SHIP_HULL_EMISSIVE_BASE * (0.92 + Math.random() * 0.12);
               mm.emissiveIntensity = baseIntensity;
               this.shipEmissiveMaterials.push({
                 material: mm as MeshStandardMaterial,

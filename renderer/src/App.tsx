@@ -178,6 +178,20 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    void import("./devThrusterPanel").then((m) => {
+      if (cancelled) return;
+      cleanup = m.mountThrusterPanel(game);
+    });
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
         if (uiState === "MENU" || uiState === "GAME_OVER") {

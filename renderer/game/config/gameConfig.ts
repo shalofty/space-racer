@@ -24,6 +24,19 @@ export const gameConfig = {
   MOVEMENT_DAMPING: 10,
 
   // --- Hull, shield, collisions ---
+  /**
+   * Extra hull emissive the game applies after FBX load (for dark placeholder ships).
+   * Set to **0** to keep Blender emission as authored (avoids fake "glow" + heavy bloom).
+   * ~0.38 matches the old hard-coded look if you need ships readable vs asteroids.
+   */
+  SHIP_HULL_EMISSIVE_BASE: 0,
+  /**
+   * Thrust nozzle offset in **world** units, then divided by `ship.scale` (FBX is often ~0.01).
+   * Local Y 0.04 with scale 0.01 is ~0.0004 world — invisible; use these instead.
+   * Positive Y = up; positive AFT = toward the stern (more negative local Z).
+   */
+  THRUSTER_NOZZLE_OFFSET_Y_WORLD: 0.285,
+  THRUSTER_NOZZLE_OFFSET_AFT_WORLD: 0.6,
   SHIP_HULL_MAX: 100,
   SHIP_SHIELD_MAX: 100,
   SHIELD_PICKUP_AMOUNT: 35,

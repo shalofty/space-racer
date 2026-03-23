@@ -11,6 +11,7 @@ import {
   Vector3,
 } from "three";
 import { gameConfig } from "../config/gameConfig";
+import { getThrusterNozzleLocals } from "../config/thrusterTuning";
 
 type SpeedParticleLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -593,10 +594,9 @@ export class ParticleSystem {
     // --- Thruster / engine exhaust (point sprites): always on; Shift boost raises rate & size. ---
     if (this.shipObject) {
       const ship = this.shipObject;
-      // Uniform scale from FBX import (e.g. 0.01): used to place the nozzle in local -Z.
-      const sx = ship.scale.x;
-      // Nozzle depth: tiny ships need a larger local -Z magnitude so the point sits at the stern in world units.
-      const lz = sx < 0.15 ? -(0.72 / sx) : -0.78;
+      // Uniform scale from FBX import (e.g. 0.01): world offsets must be divided by sx (see Game.attachThrusterFlames).
+      const sx = Math.max(1e-6, ship.scale.x);
+      const { ny, lz } = getThrusterNozzleLocals(sx);
       // `boostFactor` from Game is effectiveSpeed / BASE_SPEED; clamp so we never divide-like explode values.
       const boost = opts?.boostActive ? Math.max(1, opts?.boostFactor ?? 1.8) : 1;
       // Particles per second (higher while energy boost held): scaled again by `boost` for stronger plumes at high speed.
@@ -615,7 +615,7 @@ export class ParticleSystem {
       if (toSpawn > 0) {
         for (let i = 0; i < toSpawn; i++) {
           // Local nozzle: slight -Y matches Game.ts cone anchor; -Z is aft (exhaust direction for this asset).
-          this.thrusterNozzleScratch.set(0, -0.03, lz);
+          this.thrusterNozzleScratch.set(0, ny, lz);
           // Convert to world space so strafe/tilt/scale of the ship move the emit point correctly.
           ship.localToWorld(this.thrusterNozzleScratch);
           this.thrusterSpawnPos.copy(this.thrusterNozzleScratch);
