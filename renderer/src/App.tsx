@@ -8,6 +8,11 @@ import { music } from "./audio/music";
 import { MobileControls } from "./MobileControls";
 import { useMobileGameUI } from "./hooks/useMobileGameUI";
 import { useNeedsLandscape } from "./hooks/useNeedsLandscape";
+import {
+  exitAppFullscreen,
+  isAppFullscreen,
+  requestAppFullscreen,
+} from "./fullscreen";
 
 const game = new Game();
 
@@ -21,6 +26,7 @@ function App() {
   const needsLandscapeRef = useRef(needsLandscape);
   needsLandscapeRef.current = needsLandscape;
   const pausedForOrientationRef = useRef(false);
+  const appRootRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [uiState, setUiState] = useState<UiState>("MENU");
   const uiStateRef = useRef<UiState>("MENU");
@@ -30,6 +36,7 @@ function App() {
   const [lastGameOver, setLastGameOver] =
     useState<GameEventMap["gameOver"] | null>(null);
   const [asteroidFlashOpacity, setAsteroidFlashOpacity] = useState(0);
+  const [fullscreenActive, setFullscreenActive] = useState(false);
 
   /** Target speed from last game tick (UI may update slower than rAF). */
   const speedTargetRef = useRef(0);
@@ -149,6 +156,23 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const sync = () => setFullscreenActive(isAppFullscreen());
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    document.addEventListener(
+      "webkitfullscreenchange",
+      sync as EventListener,
+    );
+    return () => {
+      document.removeEventListener("fullscreenchange", sync);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        sync as EventListener,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -232,7 +256,18 @@ function App() {
 
   const handleClickStart = () => {
     music.unlock();
+    if (mobileGameUi) {
+      requestAppFullscreen(appRootRef.current);
+    }
     eventBus.emit("restart");
+  };
+
+  const handleMenuFullscreenClick = () => {
+    if (isAppFullscreen()) {
+      exitAppFullscreen();
+    } else {
+      requestAppFullscreen(appRootRef.current);
+    }
   };
 
   const barPercent = (value: number, max: number) =>
@@ -254,11 +289,32 @@ function App() {
     overflow: "hidden",
   };
 
-  const verticalBarTrackMobile: CSSProperties = {
-    ...verticalBarTrackDesktop,
-    width: 22,
-    height: 132,
+  /** Thin horizontal meters for mobile — minimal vertical footprint. */
+  const horizontalBarTrackMobile: CSSProperties = {
+    position: "relative",
+    width: 52,
+    height: 5,
+    background: "rgba(0,0,0,0.45)",
+    border: "1px solid rgba(255,255,255,0.2)",
+    borderRadius: 3,
+    overflow: "hidden",
+    flexShrink: 0,
   };
+
+  const horizontalBarFill = (
+    pct: number,
+    bg: string,
+    glow: string | undefined,
+  ): CSSProperties => ({
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: `${pct}%`,
+    background: bg,
+    boxShadow: glow,
+    transition: "width 0.12s ease-out, box-shadow 0.2s ease",
+  });
 
   const verticalBarFill = (
     pct: number,
@@ -277,6 +333,8 @@ function App() {
 
   return (
     <div
+      ref={appRootRef}
+      className="app-root"
       style={{
         width: "100vw",
         height: "100vh",
@@ -411,6 +469,23 @@ function App() {
             >
               Start
             </button>
+            <button
+              type="button"
+              onClick={handleMenuFullscreenClick}
+              style={{
+                marginTop: 12,
+                fontSize: "0.82rem",
+                padding: "7px 16px",
+                borderRadius: 6,
+                border: "1px solid rgba(255,255,255,0.22)",
+                background: "rgba(255,255,255,0.06)",
+                color: "rgba(255,255,255,0.88)",
+                cursor: "pointer",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {fullscreenActive ? "Exit full screen" : "Full screen"}
+            </button>
             <div
               style={{
                 alignSelf: "center",
@@ -441,6 +516,10 @@ function App() {
                     destroyed.
                   </div>
                   <div>Hold Boost to go faster (uses extra energy)</div>
+                  <div>
+                    Tap Start to play; the page may switch to full screen (use
+                    your browser&apos;s control to exit).
+                  </div>
                 </>
               ) : (
                 <>
@@ -461,20 +540,21 @@ function App() {
           <>
             {mobileGameUi ? (
               <>
-                {/* Touch: status bars across the top; score + time centered below */}
+                {/* Touch: compact horizontal meters at top edge; score below */}
                 <div
                   style={{
                     position: "absolute",
-                    top: "max(8px, env(safe-area-inset-top))",
-                    left: 8,
-                    right: 8,
+                    top: "max(6px, env(safe-area-inset-top))",
+                    left: 6,
+                    right: 6,
                     zIndex: 10,
                     color: "#fff",
                     display: "flex",
                     flexDirection: "row",
-                    alignItems: "flex-end",
+                    alignItems: "flex-start",
                     justifyContent: "center",
-                    gap: 10,
+                    flexWrap: "wrap",
+                    gap: "6px 8px",
                     pointerEvents: "none",
                     textShadow: "0 1px 3px rgba(0,0,0,0.85)",
                   }}
@@ -484,24 +564,29 @@ function App() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: 4,
+                      gap: 3,
                     }}
                   >
                     <div
-                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                      style={{
+                        fontSize: 8,
+                        opacity: 0.9,
+                        letterSpacing: 0.04,
+                        textTransform: "uppercase",
+                      }}
                     >
                       Shield
                     </div>
-                    <div style={verticalBarTrackMobile}>
+                    <div style={horizontalBarTrackMobile}>
                       <div
-                        style={verticalBarFill(
+                        style={horizontalBarFill(
                           barPercent(lastUpdate.shield, lastUpdate.shieldMax),
                           "rgba(80, 180, 255, 0.95)",
                           lastUpdate.shield <= lastUpdate.shieldMax * 0.25
-                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,180,255,0.9)`
+                            ? `0 0 6px rgba(80,180,255,0.85)`
                             : lastUpdate.shield >= lastUpdate.shieldMax * 0.95
-                              ? "0 0 18px rgba(120,220,255,0.95)"
-                              : "0 0 8px rgba(80,180,255,0.55)",
+                              ? "0 0 8px rgba(120,220,255,0.9)"
+                              : "0 0 4px rgba(80,180,255,0.45)",
                         )}
                       />
                     </div>
@@ -511,24 +596,29 @@ function App() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: 4,
+                      gap: 3,
                     }}
                   >
                     <div
-                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                      style={{
+                        fontSize: 8,
+                        opacity: 0.9,
+                        letterSpacing: 0.04,
+                        textTransform: "uppercase",
+                      }}
                     >
                       Hull
                     </div>
-                    <div style={verticalBarTrackMobile}>
+                    <div style={horizontalBarTrackMobile}>
                       <div
-                        style={verticalBarFill(
+                        style={horizontalBarFill(
                           barPercent(lastUpdate.hull, lastUpdate.hullMax),
                           "rgba(255, 120, 120, 0.95)",
                           lastUpdate.hull <= lastUpdate.hullMax * 0.25
-                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(255,120,120,0.9)`
+                            ? `0 0 6px rgba(255,120,120,0.85)`
                             : lastUpdate.hull >= lastUpdate.hullMax * 0.95
-                              ? "0 0 18px rgba(255,165,165,0.95)"
-                              : "0 0 8px rgba(255,120,120,0.5)",
+                              ? "0 0 8px rgba(255,165,165,0.9)"
+                              : "0 0 4px rgba(255,120,120,0.45)",
                         )}
                       />
                     </div>
@@ -538,25 +628,30 @@ function App() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: 4,
+                      gap: 3,
                     }}
                   >
                     <div
-                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                      style={{
+                        fontSize: 8,
+                        opacity: 0.9,
+                        letterSpacing: 0.04,
+                        textTransform: "uppercase",
+                      }}
                     >
                       Speed
                     </div>
-                    <div style={verticalBarTrackMobile}>
+                    <div style={horizontalBarTrackMobile}>
                       <div
                         style={{
                           position: "absolute",
                           left: 0,
-                          right: 0,
+                          top: 0,
                           bottom: 0,
-                          height: `${barPercent(speedSmooth, speedBarMax)}%`,
+                          width: `${barPercent(speedSmooth, speedBarMax)}%`,
                           background:
-                            "linear-gradient(180deg, rgba(180,255,200,0.95) 0%, rgba(80,220,140,0.92) 55%, rgba(40,160,255,0.9) 100%)",
-                          boxShadow: `0 0 ${10 + barPercent(speedSmooth, speedBarMax) * 0.12}px rgba(120,220,255,0.55)`,
+                            "linear-gradient(90deg, rgba(180,255,200,0.95) 0%, rgba(80,220,140,0.92) 50%, rgba(40,160,255,0.9) 100%)",
+                          boxShadow: `0 0 ${4 + barPercent(speedSmooth, speedBarMax) * 0.05}px rgba(120,220,255,0.45)`,
                         }}
                       />
                     </div>
@@ -566,24 +661,29 @@ function App() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: 4,
+                      gap: 3,
                     }}
                   >
                     <div
-                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                      style={{
+                        fontSize: 8,
+                        opacity: 0.9,
+                        letterSpacing: 0.04,
+                        textTransform: "uppercase",
+                      }}
                     >
                       Energy
                     </div>
-                    <div style={verticalBarTrackMobile}>
+                    <div style={horizontalBarTrackMobile}>
                       <div
-                        style={verticalBarFill(
+                        style={horizontalBarFill(
                           barPercent(lastUpdate.energy, lastUpdate.energyMax),
                           "rgba(80, 200, 255, 0.95)",
                           lastUpdate.energy <= lastUpdate.energyMax * 0.25
-                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,200,255,0.9)`
+                            ? `0 0 6px rgba(80,200,255,0.85)`
                             : lastUpdate.energy >= lastUpdate.energyMax * 0.95
-                              ? "0 0 18px rgba(130,235,255,0.95)"
-                              : "0 0 8px rgba(80,200,255,0.55)",
+                              ? "0 0 8px rgba(130,235,255,0.9)"
+                              : "0 0 4px rgba(80,200,255,0.45)",
                         )}
                       />
                     </div>
@@ -593,24 +693,24 @@ function App() {
                 <div
                   style={{
                     position: "absolute",
-                    top: "calc(8px + env(safe-area-inset-top, 0px) + 152px)",
-                    left: 12,
-                    right: 12,
+                    top: "calc(6px + env(safe-area-inset-top, 0px) + 34px)",
+                    left: 10,
+                    right: 10,
                     zIndex: 10,
                     color: "#fff",
                     display: "flex",
                     flexDirection: "row",
                     alignItems: "baseline",
                     justifyContent: "center",
-                    gap: 24,
+                    gap: 20,
                     pointerEvents: "none",
                     textShadow: "0 1px 3px rgba(0,0,0,0.85)",
                   }}
                 >
-                  <div style={{ fontSize: 17, fontWeight: 600 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600 }}>
                     Score {Math.floor(lastUpdate.score)}
                   </div>
-                  <div style={{ fontSize: 17, opacity: 0.92 }}>
+                  <div style={{ fontSize: 15, opacity: 0.92 }}>
                     Time {lastUpdate.time.toFixed(1)}s
                   </div>
                 </div>
