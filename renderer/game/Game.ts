@@ -102,6 +102,15 @@ export class Game {
     fire: false,
   };
 
+  /** When `active`, strafe comes from virtual joystick; otherwise keyboard. */
+  private touchInput = {
+    active: false,
+    strafeX: 0,
+    strafeY: 0,
+    boost: false,
+    fire: false,
+  };
+
   private energyRemaining: number = gameConfig.ENERGY_MAX;
   private hullRemaining: number = gameConfig.SHIP_HULL_MAX;
   private laserCooldownRemaining = 0;
@@ -222,6 +231,20 @@ export class Game {
     );
     this.thrusterFlameCore.position.set(0, ny, zCore);
     this.thrusterFlameOuter.position.set(0, ny, zOuter);
+  }
+
+  /**
+   * Touch / virtual joystick: when `active`, strafe uses `strafeX` / `strafeY` (-1..1);
+   * otherwise keyboard movement applies. Merged with keyboard for boost and fire.
+   */
+  setTouchInput(state: {
+    active: boolean;
+    strafeX: number;
+    strafeY: number;
+    boost: boolean;
+    fire: boolean;
+  }): void {
+    this.touchInput = { ...state };
   }
 
   /** Remove thruster meshes from their parent; optionally dispose geometry/materials. */
@@ -792,7 +815,7 @@ export class Game {
     // Flight fuel drains continuously; Shift burns extra while held.
     let e = this.energyRemaining;
     e -= gameConfig.ENERGY_DRAIN_PER_SECOND * delta;
-    if (this.input.shift && e > 0) {
+    if ((this.input.shift || this.touchInput.boost) && e > 0) {
       e -= gameConfig.ENERGY_CONSUME_RATE * delta;
     }
     this.energyRemaining = Math.max(0, e);
@@ -804,27 +827,33 @@ export class Game {
     const baseSpeed = this.speedController.getCurrentSpeed();
     let effectiveSpeed = baseSpeed;
 
+    const boostHeld =
+      (this.input.shift || this.touchInput.boost) && this.energyRemaining > 0;
+
     // Shift speed boost only while energy remains (already drained above).
-    if (this.input.shift && this.energyRemaining > 0) {
+    if (boostHeld) {
       effectiveSpeed = baseSpeed * gameConfig.ENERGY_SPEED_MULTIPLIER;
     }
     this.particleSystem.update(delta, {
-      boostActive: this.input.shift && this.energyRemaining > 0,
+      boostActive: boostHeld,
       boostFactor: effectiveSpeed / gameConfig.BASE_SPEED,
     });
-    this.movementSystem.inputX = this.input.left
-      ? -1
-      : this.input.right
-        ? 1
-        : 0;
-    this.movementSystem.inputY = this.input.up
-      ? 1
-      : this.input.down
-        ? -1
-        : 0;
+
+    let inputX: number;
+    let inputY: number;
+    if (this.touchInput.active) {
+      inputX = Math.max(-1, Math.min(1, this.touchInput.strafeX));
+      inputY = Math.max(-1, Math.min(1, this.touchInput.strafeY));
+    } else {
+      inputX = this.input.left ? -1 : this.input.right ? 1 : 0;
+      inputY = this.input.up ? 1 : this.input.down ? -1 : 0;
+    }
+    this.movementSystem.inputX = inputX;
+    this.movementSystem.inputY = inputY;
     this.movementSystem.update(delta);
 
-    if (!this.gameOverPending && this.input.fire && this.laserCooldownRemaining <= 0) {
+    const fireHeld = this.input.fire || this.touchInput.fire;
+    if (!this.gameOverPending && fireHeld && this.laserCooldownRemaining <= 0) {
       this.fireLaser();
       this.laserCooldownRemaining = gameConfig.LASER_COOLDOWN;
     }
@@ -911,7 +940,9 @@ export class Game {
   /** Camera shake, skybox follow, engine glow, thruster mesh flicker, rim/fill lights, post shader uniforms. */
   private applyCameraAndPostFx(delta: number): void {
     if (!this.camera) return;
-    const isBoosting = this.input.shift && this.energyRemaining > 0;
+    const isBoosting =
+      (this.input.shift || this.touchInput.boost) &&
+      this.energyRemaining > 0;
     // Shared multiplier for engine point light + cone opacity/length (matches "energy boost" feel).
     const boostMul = isBoosting ? 2.2 : 1.0;
 
@@ -1239,8 +1270,19 @@ export class Game {
     this.uiAccumulator = 0;
     this.energyRemaining = gameConfig.ENERGY_MAX;
     this.hullRemaining = gameConfig.SHIP_HULL_MAX;
+    this.input.left = false;
+    this.input.right = false;
+    this.input.up = false;
+    this.input.down = false;
     this.input.shift = false;
     this.input.fire = false;
+    this.touchInput = {
+      active: false,
+      strafeX: 0,
+      strafeY: 0,
+      boost: false,
+      fire: false,
+    };
     this.laserCooldownRemaining = 0;
     this.lasers.forEach((laser) => {
       if (laser.parent) laser.parent.remove(laser);

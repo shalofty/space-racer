@@ -7,16 +7,15 @@ export class MovementSystem {
   private damping: number;
   private player: Player;
 
-  // -1/0/1 for each axis
+  /** Strafe intent: -1..1 per axis (keyboard uses -1/0/1; touch joystick uses floats). */
   inputX: number;
   inputY: number;
 
-  /* 
-  Acceleration is the rate at which the player's velocity changes
-  Max strafe speed is the maximum speed at which the player can strafe
-  Damping is applied only when no input — slows velocity when you release a key
-  InputX is the input for the x axis, should always be 0 otherwise the player will move diagonally
-  InputY is the input for the y axis, should always be 0 otherwise the player will move diagonally
+  /*
+  Acceleration is the rate at which the player's velocity changes.
+  Max strafe speed is the maximum speed at which the player can strafe.
+  Damping is applied only when an axis has no input — slows velocity when you release.
+  Keyboard uses -1/0/1 per axis; virtual joystick can use fractional values and diagonals.
   */
 
   constructor(player: Player) {
@@ -48,8 +47,8 @@ export class MovementSystem {
       // Otherwise, add the acceleration to the velocity
       state.vx += Math.sign(dvx) * accel;
     }
-    // Only damp when not pressing a direction — otherwise we can never reach maxStrafeSpeed
-    if (this.inputX === 0) {
+    // Only damp when not steering — otherwise we can never reach maxStrafeSpeed
+    if (Math.abs(this.inputX) < 1e-4) {
       state.vx -= state.vx * this.damping * delta;
     }
     // Update the player position
@@ -67,8 +66,7 @@ export class MovementSystem {
       // Otherwise, add the acceleration to the velocity
       state.vy += Math.sign(dvy) * accel;
     }
-    // Only damp when not pressing a direction — otherwise we can never reach maxStrafeSpeed
-    if (this.inputY === 0) {
+    if (Math.abs(this.inputY) < 1e-4) {
       state.vy -= state.vy * this.damping * delta;
     }
     // Update the player position

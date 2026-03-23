@@ -5,6 +5,9 @@ import { Game } from "../game/Game";
 import { eventBus } from "../game/core/EventBus";
 import type { GameEventMap } from "../game/core/EventBus";
 import { music } from "./audio/music";
+import { MobileControls } from "./MobileControls";
+import { useMobileGameUI } from "./hooks/useMobileGameUI";
+import { useNeedsLandscape } from "./hooks/useNeedsLandscape";
 
 const game = new Game();
 
@@ -13,6 +16,11 @@ const GAME_ASPECT = 16 / 9;
 type UiState = "MENU" | "PLAYING" | "GAME_OVER";
 
 function App() {
+  const mobileGameUi = useMobileGameUI();
+  const needsLandscape = useNeedsLandscape();
+  const needsLandscapeRef = useRef(needsLandscape);
+  needsLandscapeRef.current = needsLandscape;
+  const pausedForOrientationRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [uiState, setUiState] = useState<UiState>("MENU");
   const uiStateRef = useRef<UiState>("MENU");
@@ -60,6 +68,21 @@ function App() {
   useEffect(() => {
     uiStateRef.current = uiState;
   }, [uiState]);
+
+  // Pause while portrait gate is shown; resume when rotated back to landscape.
+  useEffect(() => {
+    if (needsLandscape) {
+      if (uiStateRef.current === "PLAYING") {
+        pausedForOrientationRef.current = true;
+        game.stop();
+      }
+    } else if (pausedForOrientationRef.current) {
+      pausedForOrientationRef.current = false;
+      if (uiStateRef.current === "PLAYING") {
+        game.start();
+      }
+    }
+  }, [needsLandscape]);
 
   useEffect(() => {
     if (lastUpdate) {
@@ -133,7 +156,10 @@ function App() {
 
     const handleBlur = () => game.stop();
     const handleFocus = () => {
-      if (uiStateRef.current === "PLAYING") {
+      if (
+        uiStateRef.current === "PLAYING" &&
+        !needsLandscapeRef.current
+      ) {
         game.start();
       }
     };
@@ -218,7 +244,7 @@ function App() {
     (gameConfig.BASE_SPEED + gameConfig.BASE_SPEED * 4) *
     gameConfig.ENERGY_SPEED_MULTIPLIER;
 
-  const verticalBarTrack: CSSProperties = {
+  const verticalBarTrackDesktop: CSSProperties = {
     position: "relative",
     width: 26,
     height: 200,
@@ -226,6 +252,12 @@ function App() {
     border: "1px solid rgba(255,255,255,0.18)",
     borderRadius: 4,
     overflow: "hidden",
+  };
+
+  const verticalBarTrackMobile: CSSProperties = {
+    ...verticalBarTrackDesktop,
+    width: 22,
+    height: 132,
   };
 
   const verticalBarFill = (
@@ -255,6 +287,50 @@ function App() {
         position: "relative",
       }}
     >
+      {needsLandscape && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 20000,
+            background: "rgba(0,0,0,0.94)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            padding: 28,
+            textAlign: "center",
+            color: "#f4f6ff",
+            fontFamily: "var(--body, system-ui, sans-serif)",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--heading)",
+              fontSize: "clamp(1.35rem, 5vw, 1.85rem)",
+              letterSpacing: "0.08em",
+              marginBottom: 14,
+            }}
+          >
+            Rotate to landscape
+          </div>
+          <div
+            style={{
+              fontSize: "clamp(0.9rem, 3.2vw, 1.05rem)",
+              lineHeight: 1.55,
+              opacity: 0.88,
+              maxWidth: 320,
+            }}
+          >
+            Azimuth Protocol is played horizontally. Turn your device or widen
+            the window.
+          </div>
+        </div>
+      )}
+
       {/* Letterboxed viewport */}
       <div
         style={{
@@ -357,181 +433,365 @@ function App() {
                 gap: 14,
               }}
             >
-              <div>Move with arrow keys or WASD</div>
-              <div>
-                Energy drains as you fly. Asteroids sometimes drop energy when
-                destroyed.
-              </div>
-              <div>Hold Shift to boost (uses extra energy)</div>
-              <div>Space to fire lasers</div>
+              {mobileGameUi ? (
+                <>
+                  <div>Steer with the on-screen joystick; Fire and Boost buttons</div>
+                  <div>
+                    Energy drains as you fly. Asteroids sometimes drop energy when
+                    destroyed.
+                  </div>
+                  <div>Hold Boost to go faster (uses extra energy)</div>
+                </>
+              ) : (
+                <>
+                  <div>Move with arrow keys or WASD</div>
+                  <div>
+                    Energy drains as you fly. Asteroids sometimes drop energy when
+                    destroyed.
+                  </div>
+                  <div>Hold Shift to boost (uses extra energy)</div>
+                  <div>Space to fire lasers</div>
+                </>
+              )}
             </div>
           </div>
         )}
 
         {uiState === "PLAYING" && lastUpdate && (
           <>
-            {/* Top: score + time in one row */}
-            <div
-              style={{
-                position: "absolute",
-                top: 16,
-                left: 16,
-                right: 16,
-                zIndex: 10,
-                color: "#fff",
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "baseline",
-                justifyContent: "center",
-                gap: 28,
-                pointerEvents: "none",
-                textShadow: "0 1px 3px rgba(0,0,0,0.85)",
-              }}
-            >
-              <div style={{ fontSize: 18, fontWeight: 600 }}>
-                Score {Math.floor(lastUpdate.score)}
-              </div>
-              <div style={{ fontSize: 18, opacity: 0.92 }}>
-                Time {lastUpdate.time.toFixed(1)}s
-              </div>
-            </div>
-
-            {/* Bottom left: shield + hull (vertical, thick) */}
-            <div
-              style={{
-                position: "absolute",
-                left: 16,
-                bottom: 16,
-                zIndex: 10,
-                color: "#fff",
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "flex-end",
-                gap: 14,
-                pointerEvents: "none",
-                textShadow: "0 1px 3px rgba(0,0,0,0.85)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}>
-                  Shield
-                </div>
-                <div style={verticalBarTrack}>
-                  <div
-                    style={verticalBarFill(
-                      barPercent(lastUpdate.shield, lastUpdate.shieldMax),
-                      "rgba(80, 180, 255, 0.95)",
-                      lastUpdate.shield <= lastUpdate.shieldMax * 0.25
-                        ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,180,255,0.9)`
-                        : lastUpdate.shield >= lastUpdate.shieldMax * 0.95
-                          ? "0 0 18px rgba(120,220,255,0.95)"
-                          : "0 0 8px rgba(80,180,255,0.55)",
-                    )}
-                  />
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}>
-                  Hull
-                </div>
-                <div style={verticalBarTrack}>
-                  <div
-                    style={verticalBarFill(
-                      barPercent(lastUpdate.hull, lastUpdate.hullMax),
-                      "rgba(255, 120, 120, 0.95)",
-                      lastUpdate.hull <= lastUpdate.hullMax * 0.25
-                        ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(255,120,120,0.9)`
-                        : lastUpdate.hull >= lastUpdate.hullMax * 0.95
-                          ? "0 0 18px rgba(255,165,165,0.95)"
-                          : "0 0 8px rgba(255,120,120,0.5)",
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom right: speed bar + energy bar (vertical, thick) */}
-            <div
-              style={{
-                position: "absolute",
-                right: 16,
-                bottom: 16,
-                zIndex: 10,
-                color: "#fff",
-                display: "flex",
-                flexDirection: "row",
-                alignItems: "flex-end",
-                gap: 14,
-                pointerEvents: "none",
-                textShadow: "0 1px 3px rgba(0,0,0,0.85)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}>
-                  Speed
-                </div>
-                <div style={verticalBarTrack}>
+            {mobileGameUi ? (
+              <>
+                {/* Touch: status bars across the top; score + time centered below */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "max(8px, env(safe-area-inset-top))",
+                    left: 8,
+                    right: 8,
+                    zIndex: 10,
+                    color: "#fff",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    justifyContent: "center",
+                    gap: 10,
+                    pointerEvents: "none",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.85)",
+                  }}
+                >
                   <div
                     style={{
-                      position: "absolute",
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: `${barPercent(speedSmooth, speedBarMax)}%`,
-                      background:
-                        "linear-gradient(180deg, rgba(180,255,200,0.95) 0%, rgba(80,220,140,0.92) 55%, rgba(40,160,255,0.9) 100%)",
-                      boxShadow: `0 0 ${10 + barPercent(speedSmooth, speedBarMax) * 0.12}px rgba(120,220,255,0.55)`,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
                     }}
-                  />
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}>
-                  Energy
-                </div>
-                <div style={verticalBarTrack}>
+                  >
+                    <div
+                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Shield
+                    </div>
+                    <div style={verticalBarTrackMobile}>
+                      <div
+                        style={verticalBarFill(
+                          barPercent(lastUpdate.shield, lastUpdate.shieldMax),
+                          "rgba(80, 180, 255, 0.95)",
+                          lastUpdate.shield <= lastUpdate.shieldMax * 0.25
+                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,180,255,0.9)`
+                            : lastUpdate.shield >= lastUpdate.shieldMax * 0.95
+                              ? "0 0 18px rgba(120,220,255,0.95)"
+                              : "0 0 8px rgba(80,180,255,0.55)",
+                        )}
+                      />
+                    </div>
+                  </div>
                   <div
-                    style={verticalBarFill(
-                      barPercent(lastUpdate.energy, lastUpdate.energyMax),
-                      "rgba(80, 200, 255, 0.95)",
-                      lastUpdate.energy <= lastUpdate.energyMax * 0.25
-                        ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,200,255,0.9)`
-                        : lastUpdate.energy >= lastUpdate.energyMax * 0.95
-                          ? "0 0 18px rgba(130,235,255,0.95)"
-                          : "0 0 8px rgba(80,200,255,0.55)",
-                    )}
-                  />
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Hull
+                    </div>
+                    <div style={verticalBarTrackMobile}>
+                      <div
+                        style={verticalBarFill(
+                          barPercent(lastUpdate.hull, lastUpdate.hullMax),
+                          "rgba(255, 120, 120, 0.95)",
+                          lastUpdate.hull <= lastUpdate.hullMax * 0.25
+                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(255,120,120,0.9)`
+                            : lastUpdate.hull >= lastUpdate.hullMax * 0.95
+                              ? "0 0 18px rgba(255,165,165,0.95)"
+                              : "0 0 8px rgba(255,120,120,0.5)",
+                        )}
+                      />
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Speed
+                    </div>
+                    <div style={verticalBarTrackMobile}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: `${barPercent(speedSmooth, speedBarMax)}%`,
+                          background:
+                            "linear-gradient(180deg, rgba(180,255,200,0.95) 0%, rgba(80,220,140,0.92) 55%, rgba(40,160,255,0.9) 100%)",
+                          boxShadow: `0 0 ${10 + barPercent(speedSmooth, speedBarMax) * 0.12}px rgba(120,220,255,0.55)`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 10, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Energy
+                    </div>
+                    <div style={verticalBarTrackMobile}>
+                      <div
+                        style={verticalBarFill(
+                          barPercent(lastUpdate.energy, lastUpdate.energyMax),
+                          "rgba(80, 200, 255, 0.95)",
+                          lastUpdate.energy <= lastUpdate.energyMax * 0.25
+                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,200,255,0.9)`
+                            : lastUpdate.energy >= lastUpdate.energyMax * 0.95
+                              ? "0 0 18px rgba(130,235,255,0.95)"
+                              : "0 0 8px rgba(80,200,255,0.55)",
+                        )}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(8px + env(safe-area-inset-top, 0px) + 152px)",
+                    left: 12,
+                    right: 12,
+                    zIndex: 10,
+                    color: "#fff",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "baseline",
+                    justifyContent: "center",
+                    gap: 24,
+                    pointerEvents: "none",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  <div style={{ fontSize: 17, fontWeight: 600 }}>
+                    Score {Math.floor(lastUpdate.score)}
+                  </div>
+                  <div style={{ fontSize: 17, opacity: 0.92 }}>
+                    Time {lastUpdate.time.toFixed(1)}s
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Desktop: score + time top center; bars stay bottom corners */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 16,
+                    left: 16,
+                    right: 16,
+                    zIndex: 10,
+                    color: "#fff",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "baseline",
+                    justifyContent: "center",
+                    gap: 28,
+                    pointerEvents: "none",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 600 }}>
+                    Score {Math.floor(lastUpdate.score)}
+                  </div>
+                  <div style={{ fontSize: 18, opacity: 0.92 }}>
+                    Time {lastUpdate.time.toFixed(1)}s
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 16,
+                    bottom: 16,
+                    zIndex: 10,
+                    color: "#fff",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    gap: 14,
+                    pointerEvents: "none",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Shield
+                    </div>
+                    <div style={verticalBarTrackDesktop}>
+                      <div
+                        style={verticalBarFill(
+                          barPercent(lastUpdate.shield, lastUpdate.shieldMax),
+                          "rgba(80, 180, 255, 0.95)",
+                          lastUpdate.shield <= lastUpdate.shieldMax * 0.25
+                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,180,255,0.9)`
+                            : lastUpdate.shield >= lastUpdate.shieldMax * 0.95
+                              ? "0 0 18px rgba(120,220,255,0.95)"
+                              : "0 0 8px rgba(80,180,255,0.55)",
+                        )}
+                      />
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Hull
+                    </div>
+                    <div style={verticalBarTrackDesktop}>
+                      <div
+                        style={verticalBarFill(
+                          barPercent(lastUpdate.hull, lastUpdate.hullMax),
+                          "rgba(255, 120, 120, 0.95)",
+                          lastUpdate.hull <= lastUpdate.hullMax * 0.25
+                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(255,120,120,0.9)`
+                            : lastUpdate.hull >= lastUpdate.hullMax * 0.95
+                              ? "0 0 18px rgba(255,165,165,0.95)"
+                              : "0 0 8px rgba(255,120,120,0.5)",
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 16,
+                    bottom: 16,
+                    zIndex: 10,
+                    color: "#fff",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    gap: 14,
+                    pointerEvents: "none",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Speed
+                    </div>
+                    <div style={verticalBarTrackDesktop}>
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: `${barPercent(speedSmooth, speedBarMax)}%`,
+                          background:
+                            "linear-gradient(180deg, rgba(180,255,200,0.95) 0%, rgba(80,220,140,0.92) 55%, rgba(40,160,255,0.9) 100%)",
+                          boxShadow: `0 0 ${10 + barPercent(speedSmooth, speedBarMax) * 0.12}px rgba(120,220,255,0.55)`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: 11, opacity: 0.88, letterSpacing: 0.06 }}
+                    >
+                      Energy
+                    </div>
+                    <div style={verticalBarTrackDesktop}>
+                      <div
+                        style={verticalBarFill(
+                          barPercent(lastUpdate.energy, lastUpdate.energyMax),
+                          "rgba(80, 200, 255, 0.95)",
+                          lastUpdate.energy <= lastUpdate.energyMax * 0.25
+                            ? `0 0 ${12 + 16 * pulse(lastUpdate.time)}px rgba(80,200,255,0.9)`
+                            : lastUpdate.energy >= lastUpdate.energyMax * 0.95
+                              ? "0 0 18px rgba(130,235,255,0.95)"
+                              : "0 0 8px rgba(80,200,255,0.55)",
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <MobileControls
+              game={game}
+              active={mobileGameUi}
+            />
           </>
         )}
 
