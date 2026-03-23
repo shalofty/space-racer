@@ -1,5 +1,5 @@
 /**
- * Central tuning for Space Racer. Adjust values here instead of hunting through systems.
+ * Central tuning for Azimuth Protocol. Adjust values here instead of hunting through systems.
  */
 
 export const gameConfig = {

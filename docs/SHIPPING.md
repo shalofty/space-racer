@@ -1,4 +1,4 @@
-# Shipping Space Racer
+# Shipping Azimuth Protocol
 
 This document captures the **product direction** for a public web release and **how to deploy** the current static game. Implementation of auth and leaderboards is **not** started yet; the live site can ship the playable build alone.
 

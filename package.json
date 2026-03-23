@@ -1,7 +1,7 @@
 {
-  "name": "space-racer",
+  "name": "azimuth-protocol",
   "version": "1.0.0",
-  "description": "Space Racer — endless space runner",
+  "description": "Azimuth Protocol — endless space runner",
   "private": true,
   "scripts": {
     "dev": "cd renderer && npm run dev",

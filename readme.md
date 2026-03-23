@@ -1,4 +1,4 @@
-# Space Racer
+# Azimuth Protocol
 
 A browser-based endless space runner built with **React**, **Vite**, and **Three.js**. You pilot a ship through an asteroid field, dodge obstacles, collect powerups, and push for a higher score.
 

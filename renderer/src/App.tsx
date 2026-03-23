@@ -318,7 +318,7 @@ function App() {
                 color: "#f4f6ff",
               }}
             >
-              Space Racer
+              Azimuth Protocol
             </h1>
             <button
               type="button"
