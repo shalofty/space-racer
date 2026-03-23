@@ -1,16 +1,44 @@
 import type { Camera, Mesh, Scene } from "three";
 import {
   AdditiveBlending,
+  BufferAttribute,
+  BufferGeometry,
+  CanvasTexture,
   DoubleSide,
   Mesh as ThreeMesh,
+  Points,
+  PointsMaterial,
   PlaneGeometry,
   ShaderMaterial,
+  SRGBColorSpace,
   Vector3 as ThreeVector3,
-  NormalBlending,
 } from "three";
 import type { NebulaQuality } from "./NebulaClouds";
 
 type CloudKind = "wisp" | "thick";
+
+function createStarSpriteTexture(): CanvasTexture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("2D context required for star sprite");
+  }
+  const cx = size / 2;
+  const r = size / 2;
+  const grad = ctx.createRadialGradient(cx, cx, 0, cx, cx, r);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.12, "rgba(255,255,255,0.95)");
+  grad.addColorStop(0.42, "rgba(255,255,255,0.18)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
 
 type CloudPlane = {
   mesh: Mesh;
@@ -27,17 +55,26 @@ export class LayeredClouds {
   private thickMaterial: ShaderMaterial;
 
   private quality: NebulaQuality = "med";
+  private starLayers: {
+    points: Points;
+    positions: Float32Array;
+    zSpeedFactor: number;
+    nearMul: number;
+    farMul: number;
+  }[] = [];
 
   // Cloud volume placement.
   private readonly nearDepth: number;
   private readonly farDepth: number;
   private readonly recycleExtra: number;
+  private readonly starSpriteTexture: CanvasTexture;
 
   constructor(scene: Scene, opts?: { nearDepth?: number; farDepth?: number }) {
     this.scene = scene;
     this.nearDepth = opts?.nearDepth ?? 20;
     this.farDepth = opts?.farDepth ?? 140;
     this.recycleExtra = 6;
+    this.starSpriteTexture = createStarSpriteTexture();
 
     const vertexShader = `
       varying vec2 vUv;
@@ -149,7 +186,7 @@ export class LayeredClouds {
         ...baseUniforms,
         u_colorA: { value: new ThreeVector3(0.35, 0.75, 1.0) },
         u_colorB: { value: new ThreeVector3(0.55, 0.25, 1.0) },
-        u_opacity: { value: 0.07 },
+        u_opacity: { value: 0.12 },
         u_density: { value: 0.9 },
         u_threshold: { value: 0.62 },
         u_sharpness: { value: 2.0 },
@@ -171,7 +208,7 @@ export class LayeredClouds {
         ...baseUniforms,
         u_colorA: { value: new ThreeVector3(0.95, 0.35, 0.75) },
         u_colorB: { value: new ThreeVector3(0.25, 0.85, 0.95) },
-        u_opacity: { value: 0.16 },
+        u_opacity: { value: 0.24 },
         u_density: { value: 1.15 },
         u_threshold: { value: 0.68 },
         u_sharpness: { value: 2.4 },
@@ -180,11 +217,13 @@ export class LayeredClouds {
         u_warp: { value: 1.4 },
       },
       transparent: true,
-      blending: NormalBlending,
+      blending: AdditiveBlending,
       depthWrite: false,
       side: DoubleSide,
       depthTest: true,
     });
+
+    this.createStarLayers();
   }
 
   setQuality(quality: NebulaQuality): void {
@@ -200,6 +239,7 @@ export class LayeredClouds {
     }
     this.planes = [];
     this.createPlanes();
+    this.createStarLayers();
   }
 
   reset(camera: Camera): void {
@@ -213,6 +253,83 @@ export class LayeredClouds {
     for (const p of this.planes) {
       this.resetPlane(p, nearZ, farZ);
       this.orientPlaneToCamera(p.mesh, camera);
+    }
+    for (const s of this.starLayers) {
+      const nearStarZ = camZ - this.nearDepth * s.nearMul;
+      const farStarZ = camZ - this.farDepth * s.farMul - 180;
+      const span = Math.max(1e-3, nearStarZ - farStarZ);
+      const pos = s.positions;
+      for (let i = 0; i < pos.length; i += 3) {
+        pos[i + 0] = (Math.random() * 2 - 1) * 80;
+        pos[i + 1] = (Math.random() * 2 - 1) * 45;
+        pos[i + 2] = farStarZ + Math.random() * span;
+      }
+      const positionAttr = s.points.geometry.getAttribute("position");
+      positionAttr.needsUpdate = true;
+    }
+  }
+
+  private createStarLayers(): void {
+    for (const s of this.starLayers) {
+      this.scene.remove(s.points);
+      s.points.geometry.dispose();
+      const oldMat = s.points.material as PointsMaterial;
+      oldMat.map = null;
+      oldMat.dispose();
+    }
+    this.starLayers = [];
+
+    const defs =
+      this.quality === "low"
+        ? [
+            { count: 380, size: 0.8, speed: 0.22, nearMul: 0.12, farMul: 0.25 },
+            { count: 250, size: 1.1, speed: 0.36, nearMul: 0.22, farMul: 0.45 },
+          ]
+        : this.quality === "high"
+          ? [
+              { count: 760, size: 0.75, speed: 0.2, nearMul: 0.12, farMul: 0.28 },
+              { count: 620, size: 1.0, speed: 0.34, nearMul: 0.2, farMul: 0.48 },
+              { count: 380, size: 1.35, speed: 0.5, nearMul: 0.3, farMul: 0.62 },
+            ]
+          : [
+              { count: 560, size: 0.75, speed: 0.2, nearMul: 0.12, farMul: 0.28 },
+              { count: 420, size: 1.0, speed: 0.34, nearMul: 0.22, farMul: 0.5 },
+              { count: 280, size: 1.35, speed: 0.5, nearMul: 0.3, farMul: 0.62 },
+            ];
+
+    for (const def of defs) {
+      const pos = new Float32Array(def.count * 3);
+      for (let i = 0; i < def.count; i++) {
+        const ii = i * 3;
+        pos[ii + 0] = (Math.random() * 2 - 1) * 80;
+        pos[ii + 1] = (Math.random() * 2 - 1) * 45;
+        pos[ii + 2] = -Math.random() * 220;
+      }
+      const geo = new BufferGeometry();
+      geo.setAttribute("position", new BufferAttribute(pos, 3));
+      const mat = new PointsMaterial({
+        map: this.starSpriteTexture,
+        color: 0xbcd8ff,
+        transparent: true,
+        opacity: 0.8,
+        alphaTest: 0.02,
+        depthWrite: false,
+        depthTest: true,
+        fog: false,
+        blending: AdditiveBlending,
+        size: def.size,
+        sizeAttenuation: true,
+      });
+      const points = new Points(geo, mat);
+      points.renderOrder = 1;
+      this.scene.add(points);
+      this.starLayers.push({
+        points,
+        positions: pos,
+        zSpeedFactor: def.speed,
+        nearMul: def.nearMul,
+        farMul: def.farMul,
+      });
     }
   }
 
@@ -279,6 +396,26 @@ export class LayeredClouds {
         this.orientPlaneToCamera(p.mesh, camera);
       }
     }
+
+    for (const s of this.starLayers) {
+      const points = s.points;
+      const recycleStarZ = camZ + this.recycleExtra;
+      const nearStarZ = camZ - this.nearDepth * s.nearMul;
+      const farStarZ = camZ - this.farDepth * s.farMul - 180;
+      const span = Math.max(1e-3, nearStarZ - farStarZ);
+      const pos = s.positions;
+      const layerDz = dz * s.zSpeedFactor;
+      for (let i = 0; i < pos.length; i += 3) {
+        pos[i + 2] += layerDz;
+        if (pos[i + 2] > recycleStarZ) {
+          pos[i + 0] = (Math.random() * 2 - 1) * 80;
+          pos[i + 1] = (Math.random() * 2 - 1) * 45;
+          pos[i + 2] = farStarZ + Math.random() * span;
+        }
+      }
+      const positionAttr = points.geometry.getAttribute("position");
+      positionAttr.needsUpdate = true;
+    }
   }
 
   dispose(): void {
@@ -287,6 +424,15 @@ export class LayeredClouds {
       p.mesh.geometry.dispose();
     }
     this.planes = [];
+    for (const s of this.starLayers) {
+      this.scene.remove(s.points);
+      s.points.geometry.dispose();
+      const mat = s.points.material as PointsMaterial;
+      mat.map = null;
+      mat.dispose();
+    }
+    this.starLayers = [];
+    this.starSpriteTexture.dispose();
     this.wispsMaterial.dispose();
     this.thickMaterial.dispose();
   }

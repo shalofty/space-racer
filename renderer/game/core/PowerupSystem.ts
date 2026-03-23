@@ -4,7 +4,8 @@ import { SpeedController } from "./SpeedController";
 export class PowerupSystem {
   private speedController: SpeedController;
   private speedBoosts: { remaining: number; amount: number }[] = [];
-  private shieldRemaining = 0;
+  private shield = 0;
+  private readonly shieldMax: number;
 
   /* 
   Speed controller is the speed controller for the player
@@ -12,8 +13,10 @@ export class PowerupSystem {
   Shield remaining is the remaining time for the shield
   */
 
-  constructor(speedController: SpeedController) {
+  constructor(speedController: SpeedController, shieldMax: number) {
     this.speedController = speedController;
+    this.shieldMax = shieldMax;
+    this.shield = shieldMax;
   }
 
   // Apply a speed boost to the player
@@ -24,17 +27,29 @@ export class PowerupSystem {
   }
 
   // Apply a shield to the player
-  applyShield(duration: number): void {
-    // Shield pickups extend the immunity window.
-    this.shieldRemaining += duration;
+  applyShield(amount: number): void {
+    this.shield = Math.min(this.shieldMax, this.shield + amount);
   }
 
-  // Check if the shield is active
-  isShieldActive(): boolean {
-    return this.shieldRemaining > 0;
+  getShield(): number {
+    return this.shield;
   }
 
-  // Update the powerup system
+  getShieldMax(): number {
+    return this.shieldMax;
+  }
+
+  // Returns the remaining damage that could not be absorbed by shield.
+  absorbDamage(damage: number): number {
+    if (damage <= 0) return 0;
+    if (this.shield <= 0) return damage;
+
+    const absorbed = Math.min(this.shield, damage);
+    this.shield -= absorbed;
+    return damage - absorbed;
+  }
+
+  // Update active timed boosts.
   update(delta: number): void {
     // Update speed boosts
     if (this.speedBoosts.length > 0) {
@@ -53,10 +68,6 @@ export class PowerupSystem {
       this.speedBoosts = remainingBoosts;
     }
 
-    // Update shield
-    if (this.shieldRemaining > 0) {
-      this.shieldRemaining = Math.max(0, this.shieldRemaining - delta);
-    }
   }
 
   // Reset the powerup system
@@ -69,7 +80,7 @@ export class PowerupSystem {
       }
     }
     this.speedBoosts = [];
-    this.shieldRemaining = 0;
+    this.shield = this.shieldMax;
   }
 }
 

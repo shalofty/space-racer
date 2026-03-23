@@ -4,18 +4,7 @@ import type { WorldScrollSystem } from "./WorldScrollSystem";
 import type { CollisionSystem } from "./CollisionSystem";
 import type { AsteroidManager } from "../core/AsteroidManager";
 import type { ParticleSystem } from "../core/ParticleSystem";
-
-const SPAWN_RULES = {
-  DISTANCE_INTERVAL: 10, // world units
-  POWERUP_PROBABILITY: 0.2,
-  SHIELD_PROBABILITY: 0.33, // of powerups
-  ENERGY_PROBABILITY: 0.33, // of powerups
-  ASTEROID_AURA_PROBABILITY: 0.2,
-};
-
-const WORLD = {
-  SPAWN_Z_START: -50,
-};
+import { gameConfig } from "../config/gameConfig";
 
 interface SpawnBounds {
   maxX: number;
@@ -58,7 +47,7 @@ export class SpawnSystem {
   }
 
   update(totalDistance: number): void {
-    if (totalDistance - this.lastSpawnDistance < SPAWN_RULES.DISTANCE_INTERVAL) {
+    if (totalDistance - this.lastSpawnDistance < gameConfig.SPAWN_DISTANCE_INTERVAL) {
       return;
     }
 
@@ -72,30 +61,18 @@ export class SpawnSystem {
     const y = (Math.random() * 2 - 1) * limitY;
 
     const isPowerup =
-      Math.random() < SPAWN_RULES.POWERUP_PROBABILITY && this.collisionSystem;
+      Math.random() < gameConfig.SPAWN_POWERUP_PROBABILITY && this.collisionSystem;
 
     if (isPowerup && this.collisionSystem) {
       const powerupGeometry = new SphereGeometry(0.6, 16, 16);
-      const r = Math.random();
-      let powerupType: "shield" | "energy" | "speed";
-      if (r < SPAWN_RULES.SHIELD_PROBABILITY) {
-        powerupType = "shield";
-      } else if (r < SPAWN_RULES.SHIELD_PROBABILITY + SPAWN_RULES.ENERGY_PROBABILITY) {
-        powerupType = "energy";
-      } else {
-        powerupType = "speed";
-      }
+      const powerupType: "shield" | "speed" =
+        Math.random() < gameConfig.SPAWN_SHIELD_PROBABILITY ? "shield" : "speed";
 
-      const color =
-        powerupType === "shield"
-          ? 0x44aaff
-          : powerupType === "energy"
-            ? 0x44ff88
-            : 0xffff44;
+      const color = powerupType === "shield" ? 0x44aaff : 0xffff44;
 
       const powerupMaterial = new MeshBasicMaterial({ color });
       const mesh: Mesh = new ThreeMesh(powerupGeometry, powerupMaterial);
-      mesh.position.set(x, y, WORLD.SPAWN_Z_START);
+      mesh.position.set(x, y, gameConfig.WORLD_SPAWN_Z_START);
       (mesh as any).userData = {
         powerupType,
         spawnType: `powerup-${powerupType}`,
@@ -116,18 +93,31 @@ export class SpawnSystem {
         obj = mesh;
       }
 
-      obj.position.set(x, y, WORLD.SPAWN_Z_START);
+      obj.position.set(x, y, gameConfig.WORLD_SPAWN_Z_START);
+      const asteroidHp =
+        gameConfig.SPAWN_ASTEROID_HP_MIN +
+        Math.floor(
+          Math.random() *
+            (gameConfig.SPAWN_ASTEROID_HP_MAX -
+              gameConfig.SPAWN_ASTEROID_HP_MIN +
+              1),
+        );
       // Tag for debug introspection.
       (obj as any).userData = {
         ...(obj as any).userData,
         spawnType: "obstacle",
+        hp: asteroidHp,
+        hpMax: asteroidHp,
       };
       this.worldScrollSystem.addDynamicObject(obj);
       if (this.collisionSystem) {
         this.collisionSystem.registerObstacle(obj);
       }
 
-      if (this.particleSystem && Math.random() < SPAWN_RULES.ASTEROID_AURA_PROBABILITY) {
+      if (
+        this.particleSystem &&
+        Math.random() < gameConfig.SPAWN_ASTEROID_AURA_PROBABILITY
+      ) {
         this.particleSystem.attachAsteroidAura(obj);
       }
     }

@@ -1,5 +1,15 @@
 ## MVP Development Roadmap (from `vision.md`)
 
+## Session Update (Implemented)
+
+- Moved game code under `renderer/game` for deploy/build consistency.
+- Added ship survivability model with **Shield HP + Hull HP** and layered collision damage.
+- Replaced timed shield immunity with shield HP refills from shield pickups.
+- Extended HUD update payload to include `shield`, `shieldMax`, `hull`, and `hullMax`.
+- Added forward-firing laser combat (Space key) with a fixed shot cooldown.
+- Added asteroid HP so obstacles can be damaged and destroyed by lasers.
+- Added particle explosions for asteroid destruction and ship destruction.
+
 ### Milestone 0 — Repo + tooling baseline
 - **Deliverables**
   - Vite + React + TypeScript workspace boots

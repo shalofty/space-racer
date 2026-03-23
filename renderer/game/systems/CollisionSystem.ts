@@ -20,11 +20,11 @@ export class CollisionSystem {
   private tempBox = new Box3();
   private playerHalfSize = new Vector3(0.7, 0.7, 0.7);
   private defaultColliderHalfSize = new Vector3(0.7, 0.7, 0.7);
-  private isShieldActive: () => boolean;
+  private onObstacleCollision: (object: Object3D) => void;
 
-  constructor(player: Player, isShieldActive: () => boolean) {
+  constructor(player: Player, onObstacleCollision: (object: Object3D) => void) {
     this.player = player;
-    this.isShieldActive = isShieldActive;
+    this.onObstacleCollision = onObstacleCollision;
   }
 
   registerObstacle(object: Object3D): void {
@@ -72,23 +72,11 @@ export class CollisionSystem {
       }
 
       if (collider.type === "obstacle") {
-        if (this.isShieldActive && this.isShieldActive()) {
-          const dir = collider.object.position
-            .clone()
-            .sub(new Vector3(state.x, state.y, 0))
-            .normalize();
-          collider.object.position.addScaledVector(dir, 5);
-          if (collider.object.parent) {
-            collider.object.parent.remove(collider.object);
-          }
-          continue;
+        this.onObstacleCollision(collider.object);
+        if (collider.object.parent) {
+          collider.object.parent.remove(collider.object);
         }
-        eventBus.emit("gameOver", {
-          score: state.x * 0 + 0, // placeholder; Game emits final stats
-          time: 0,
-        });
-        // Let Game / UI handle stopping and resetting; break after first hit.
-        return;
+        continue;
       }
 
       if (collider.type === "powerup") {

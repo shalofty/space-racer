@@ -1,11 +1,6 @@
 import type { Object3D } from "three";
 import { Vector3 } from "three";
-
-// World constants
-const WORLD = {
-  SPAWN_Z_START: -50,
-  DESPAWN_Z: 10,
-};
+import { gameConfig } from "../config/gameConfig";
 
 // World scroll system class
 export class WorldScrollSystem {
@@ -19,7 +14,7 @@ export class WorldScrollSystem {
   SpacingZ is the spacing between the tiles
   */
 
-  constructor(tiles: Object3D[], spacingZ = 10) {
+  constructor(tiles: Object3D[], spacingZ = gameConfig.WORLD_SCROLL_SPACING_Z) {
     this.tiles = tiles;
     this.spacingZ = spacingZ;
   }
@@ -27,6 +22,10 @@ export class WorldScrollSystem {
   // Add a dynamic object to the world scroll system
   addDynamicObject(obj: Object3D): void {
     this.dynamicObjects.push(obj);
+  }
+
+  removeDynamicObject(obj: Object3D): void {
+    this.dynamicObjects = this.dynamicObjects.filter((o) => o !== obj);
   }
 
   // Reset the world scroll system
@@ -55,10 +54,10 @@ export class WorldScrollSystem {
       tile.position.z += dz;
 
       // If the tile is past the despawn zone, spawn it again
-      if (tile.position.z > WORLD.DESPAWN_Z) {
+      if (tile.position.z > gameConfig.WORLD_DESPAWN_Z) {
         // Spawn the tile again
         tile.position.z =
-          WORLD.SPAWN_Z_START -
+          gameConfig.WORLD_SPAWN_Z_START -
           this.spacingZ * Math.random(); // Slight jitter to avoid uniformity
       }
     }
@@ -79,7 +78,7 @@ export class WorldScrollSystem {
 
     // Filter the dynamic objects
     this.dynamicObjects = this.dynamicObjects.filter((obj) => {
-      if (obj.position.z > WORLD.DESPAWN_Z) {
+      if (obj.position.z > gameConfig.WORLD_DESPAWN_Z) {
         // If the dynamic object is past the despawn zone, remove it
         if (obj.parent) {
           // Remove the dynamic object from the parent

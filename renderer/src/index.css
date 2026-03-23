@@ -1,3 +1,39 @@
+@font-face {
+  font-family: "Edge of the Galaxy";
+  src: url("/fonts/edge-of-the-galaxy/EdgeOfTheGalaxyRegular-OVEa6.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Edge of the Galaxy";
+  src: url("/fonts/edge-of-the-galaxy/EdgeOfTheGalaxyItalic-ZVJB3.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Edge of the Galaxy Poster";
+  src: url("/fonts/edge-of-the-galaxy/EdgeOfTheGalaxyPoster-3zRAp.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Edge of the Galaxy Poster";
+  src: url("/fonts/edge-of-the-galaxy/EdgeOfTheGalaxyPosterItalic-x3o1m.otf")
+    format("opentype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -11,8 +47,11 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-body: "Edge of the Galaxy", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Edge of the Galaxy Poster", "Edge of the Galaxy", fantasy,
+    sans-serif;
+  --sans: var(--font-body);
+  --heading: var(--font-display);
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
@@ -69,10 +108,14 @@ body {
   overflow: hidden;
 }
 
+button {
+  font-family: inherit;
+}
+
 h1,
 h2 {
   font-family: var(--heading);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--text-h);
 }
 

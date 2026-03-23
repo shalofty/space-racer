@@ -113,7 +113,7 @@ export class AsteroidManager {
         if (typeof cloned?.roughness === "number") {
           cloned.roughness = MathUtils.clamp(
             cloned.roughness + MathUtils.randFloat(-0.2, 0.2),
-            0.05,
+            0.28,
             1,
           );
         }
@@ -121,8 +121,15 @@ export class AsteroidManager {
           cloned.metalness = MathUtils.clamp(
             cloned.metalness + MathUtils.randFloat(-0.2, 0.2),
             0,
-            1,
+            0.48,
           );
+        }
+        if (cloned?.emissive) {
+          cloned.emissive.copy(t).multiplyScalar(0.22);
+          cloned.emissive.r += 0.04;
+          cloned.emissive.g += 0.04;
+          cloned.emissive.b += 0.05;
+          cloned.emissiveIntensity = 0.42;
         }
         cloned.needsUpdate = true;
         return cloned;

@@ -6,6 +6,7 @@ export type GameEventName =
   | "gameOver"
   | "powerupCollected"
   | "collectibleCollected"
+  | "asteroidDestroyed"
   | "restart";
 
 // Event payloads
@@ -17,12 +18,18 @@ export interface GameEventMap {
     speed: number; // current effective speed
     energy: number; // current energy remaining (0..energyMax)
     energyMax: number; // max energy value (for UI scaling)
+    shield: number; // current shield hp
+    shieldMax: number; // max shield hp
+    hull: number; // current hull hp
+    hullMax: number; // max hull hp
   };
 
   // Game over event payload
   gameOver: {
     score: number;
     time: number;
+    /** Hull destroyed vs out of fuel (no explosion). */
+    reason?: "hull" | "stranded";
   };
 
   // Powerup collected event payload
@@ -34,6 +41,8 @@ export interface GameEventMap {
   collectibleCollected: {
     value: number;
   };
+
+  asteroidDestroyed: void;
 
   // Restart event payload
   restart: void;

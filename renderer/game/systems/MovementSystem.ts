@@ -1,4 +1,5 @@
 import { Player } from "../entities/Player";
+import { gameConfig } from "../config/gameConfig";
 
 export class MovementSystem {
   private acceleration: number;
@@ -20,9 +21,9 @@ export class MovementSystem {
 
   constructor(player: Player) {
     this.player = player;
-    this.acceleration = 40;
-    this.maxStrafeSpeed = 65;
-    this.damping = 10;
+    this.acceleration = gameConfig.MOVEMENT_ACCELERATION;
+    this.maxStrafeSpeed = gameConfig.MOVEMENT_MAX_STRAFE_SPEED;
+    this.damping = gameConfig.MOVEMENT_DAMPING;
     this.inputX = 0;
     this.inputY = 0;
   }
@@ -73,16 +74,27 @@ export class MovementSystem {
     // Update the player position
     state.y += state.vy * delta;
 
+    // Ram impulse: extra motion that decays (not part of strafe input).
+    state.x += state.impulseX * delta;
+    state.y += state.impulseY * delta;
+    const decay = Math.exp(
+      -gameConfig.COLLISION_IMPULSE_DECAY_PER_SEC * delta,
+    );
+    state.impulseX *= decay;
+    state.impulseY *= decay;
+
     // Calculate the limit for the x axis
     const limitX = this.player.maxX - this.player.halfWidth;
     // If the player is past the limit, set the velocity to 0
     if (state.x > limitX) {
       state.x = limitX;
       state.vx = 0;
+      state.impulseX = 0;
     // If the player is past the limit, set the velocity to 0
     } else if (state.x < -limitX) {
       state.x = -limitX;
       state.vx = 0;
+      state.impulseX = 0;
     }
 
     // Calculate the limit for the y axis
@@ -91,10 +103,12 @@ export class MovementSystem {
     if (state.y > limitY) {
       state.y = limitY;
       state.vy = 0;
+      state.impulseY = 0;
     // If the player is past the limit, set the velocity to 0
     } else if (state.y < -limitY) {
       state.y = -limitY;
       state.vy = 0;
+      state.impulseY = 0;
     }
   }
 }

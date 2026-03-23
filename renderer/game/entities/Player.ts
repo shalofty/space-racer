@@ -1,10 +1,4 @@
-// Player entity
-const PLAYER = {
-  HALF_WIDTH: 0.5,
-  MAX_X: 8,
-  MAX_Y: 8,
-  Z: 0,
-};
+import { gameConfig } from "../config/gameConfig";
 
 // Player state
 export interface PlayerState {
@@ -12,6 +6,9 @@ export interface PlayerState {
   y: number;
   vx: number;
   vy: number;
+  /** Decaying ram impulse (world units/s); applied on top of strafe in MovementSystem. */
+  impulseX: number;
+  impulseY: number;
 }
 
 // Player class
@@ -21,10 +18,12 @@ export class Player {
     y: 0,
     vx: 0,
     vy: 0,
+    impulseX: 0,
+    impulseY: 0,
   };
 
-  readonly halfWidth = PLAYER.HALF_WIDTH;
-  readonly maxX = PLAYER.MAX_X;
-  readonly maxY = PLAYER.MAX_Y;
+  readonly halfWidth = gameConfig.PLAYER_HALF_WIDTH;
+  readonly maxX = gameConfig.PLAYER_MAX_X;
+  readonly maxY = gameConfig.PLAYER_MAX_Y;
 }
 
