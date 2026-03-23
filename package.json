@@ -1,0 +1,17 @@
+{
+  "name": "speedracer",
+  "version": "1.0.0",
+  "description": "SpeedRacer endless runner",
+  "main": "index.js",
+  "scripts": {
+    "dev": "cd renderer && npm run dev",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@types/three": "^0.183.1"
+  }
+}
